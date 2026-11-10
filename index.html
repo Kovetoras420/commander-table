@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#12141a">
+<title>Commander Table</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-hand phone tool — seat grid on top, turn/phase rail, battlefield, card help, log, rules notes last */
+:root{
+  --bg:#eef0f3; --surface:#ffffff; --surface-2:#e3e6ec; --fg:#1b1e26; --muted:#5d6475; --line:#cfd4de;
+  --accent:#3a5bd9; --on-accent:#ffffff; --danger:#c2362b; --warn:#a86a00; --ok:#1f8a5b;
+  --s1:#c58a1a; --s2:#1f8fa0; --s3:#7a52c7; --s4:#c2473b;
+  --f-num:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12141a; --surface:#1c1f28; --surface-2:#262a35; --fg:#e8eaf0; --muted:#9aa1b2; --line:#323746;
+  --accent:#7d97ff; --on-accent:#10131c; --danger:#ff6b5e; --warn:#f0b04a; --ok:#4fd19a;
+  --s1:#f0b445; --s2:#4cc3d3; --s3:#a988f0; --s4:#f07467; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12141a; --surface:#1c1f28; --surface-2:#262a35; --fg:#e8eaf0; --muted:#9aa1b2; --line:#323746;
+  --accent:#7d97ff; --on-accent:#10131c; --danger:#ff6b5e; --warn:#f0b04a; --ok:#4fd19a;
+  --s1:#f0b445; --s2:#4cc3d3; --s3:#a988f0; --s4:#f07467; color-scheme:dark}
+
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 32px}
+.wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+button{font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:6px 10px;touch-action:manipulation}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:active{transform:scale(.97)}
+button:disabled{opacity:.45;cursor:default;transform:none}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+h1{font-family:var(--f-num);font-weight:700;font-size:24px;letter-spacing:.02em;margin:0;text-transform:uppercase}
+.tools{display:flex;gap:6px;flex-wrap:wrap}
+.tools button{min-height:36px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;padding:6px 12px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.banner{background:var(--surface);border:2px solid var(--ok);border-radius:12px;padding:10px 12px;font:700 20px var(--f-num);letter-spacing:.02em;text-transform:uppercase}
+.banner small{display:block;font:400 12.5px var(--f-body);text-transform:none;letter-spacing:0;color:var(--muted)}
+
+.seats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.seat{--c:var(--s1);background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.seat.active{box-shadow:0 0 0 2px var(--c)}
+.seat.out{opacity:.55}
+.seat-head{display:flex;align-items:center;gap:6px;min-width:0}
+.seat-head input{flex:1;min-width:0;font:600 16px var(--f-body);color:var(--fg);background:transparent;border:0;border-bottom:1px dashed var(--line);border-radius:0;padding:2px 0}
+.turn-tag{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--c)}
+.life{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px}
+.life .n{font:700 clamp(44px,13vw,64px)/1 var(--f-num);text-align:center;font-variant-numeric:tabular-nums}
+.life .n.low{color:var(--warn)} .life .n.dead{color:var(--danger)}
+.stack{display:flex;flex-direction:column;gap:4px}
+.stack button{min-width:46px;min-height:38px;padding:6px 0;font-weight:600}
+.status{font-size:12px;color:var(--danger);font-weight:600}
+details summary{cursor:pointer;color:var(--muted);font-size:12.5px;list-style:none;padding:4px 0}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:"▸ ";}
+details[open] summary::before{content:"▾ ";}
+.rows{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.row{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:6px;font-size:12.5px}
+.row .lbl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .v{font:600 18px var(--f-num);min-width:28px;text-align:center;font-variant-numeric:tabular-nums}
+.row .v.hot{color:var(--danger)}
+.row button{min-width:38px;min-height:36px;padding:0 8px;font-size:16px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:5px}
+.hint{color:var(--muted);font-size:11.5px}
+
+.turn{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.turn-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.turn-top .who{font:700 20px var(--f-num);letter-spacing:.02em;text-transform:uppercase}
+.turn-top .tn{color:var(--muted);font-size:12px}
+.phases{position:relative;display:flex;gap:4px;overflow-x:auto;padding-bottom:2px}
+.phases button{flex:0 0 auto;font-size:12px;padding:6px 9px;background:transparent}
+.phases button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.phase-card{border-left:3px solid var(--accent);padding:2px 0 2px 12px;display:flex;flex-direction:column;gap:6px}
+.phase-card h2{margin:0;font:700 22px var(--f-num);text-transform:uppercase;letter-spacing:.02em;text-wrap:balance}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:999px;border:1px solid currentColor}
+.chip.yes{color:var(--ok)} .chip.no{color:var(--danger)}
+.phase-card ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px;max-width:65ch}
+.nav{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px}
+.nav button{padding:10px 4px;font-weight:600;white-space:nowrap}
+.nav .primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+
+.ref{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}
+.ref h3{margin:0 0 8px;font:700 18px var(--f-num);text-transform:uppercase;letter-spacing:.03em}
+.ref dl{margin:0;display:grid;grid-template-columns:max-content 1fr;gap:6px 12px;font-size:13px}
+.ref dt{font-weight:600}
+.ref dd{margin:0;color:var(--muted);min-width:0}
+
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--danger);border-radius:10px;padding:8px 10px;font-size:13px}
+.confirm .yes{background:var(--danger);border-color:var(--danger);color:var(--on-accent)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.panel h3{margin:0;font:700 18px var(--f-num);text-transform:uppercase;letter-spacing:.03em}
+.panel p{margin:0}
+.field{width:100%;font:inherit;font-size:16px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+textarea.field{resize:vertical;min-height:72px}
+.inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.inline .field{flex:1;min-width:0;width:auto}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600;padding:8px 14px}
+.answer{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px;max-width:70ch;overflow-wrap:anywhere}
+.answer p{margin:0 0 8px} .answer p:last-child{margin:0}
+.answer ul,.answer ol{margin:0 0 8px;padding-left:20px}
+.card-res{display:flex;flex-direction:column;gap:8px}
+.card-top{display:flex;gap:12px;align-items:flex-start}
+.card-top .txt{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
+.cardimg{width:96px;height:auto;border-radius:6px;flex:0 0 auto}
+.card-res .cname{font:700 20px var(--f-num);letter-spacing:.02em}
+.card-res .cost{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--muted)}
+.card-res .tline{font-size:12.5px;font-weight:600;color:var(--muted)}
+.card-res .oracle{white-space:pre-wrap}
+.card-res a,.panel a{color:var(--accent)}
+.card-res ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.card-res .date{color:var(--muted);font-size:11.5px}
+.board{display:flex;flex-direction:column;gap:12px}
+.bplayer{--c:var(--s1);display:flex;flex-direction:column;gap:6px;border-left:3px solid var(--c);padding-left:10px}
+.bplayer .bname{font-weight:600;font-size:13px}
+.bcards{display:flex;flex-wrap:wrap;gap:6px}
+.bcard{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);font-size:13px;max-width:100%}
+.bcard button{border:0;background:transparent;min-height:34px;padding:4px 4px 4px 12px;border-radius:999px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bcard button.x{padding:4px 12px 4px 8px;color:var(--muted);font-size:16px;flex:0 0 auto}
+.empty{color:var(--muted);font-size:12.5px}
+.err{color:var(--danger);font-size:12.5px}
+.log{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;max-height:240px;overflow-y:auto;font-size:13px}
+.log li{display:grid;grid-template-columns:34px 1fr;gap:6px}
+.log .t{color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px;padding-top:1px}
+.log .mark{font-weight:600}
+.log .gone{color:var(--danger);font-weight:600}
+.life{grid-template-columns:auto minmax(0,1fr) auto}
+@media (max-width:420px){ .ref dl{grid-template-columns:1fr} .ref dd{margin-bottom:6px} }
+@media (max-width:390px){ .stack button{min-width:38px} .life{gap:4px} .life .n{font-size:40px} .seat{padding:8px} }
+@media (max-width:340px){ .seats{grid-template-columns:minmax(0,1fr)} .life .n{font-size:52px} .stack button{min-width:52px} }
+@media (prefers-reduced-motion:reduce){button:active{transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div id="jsWarn" style="padding:12px 14px;border-radius:10px;border:1px solid #c2362b;background:#fff3f1;color:#7a1d16;font:14px/1.45 system-ui,sans-serif">
+<strong>The app didn't start.</strong> This viewer shows the page without running it. Open it in a web browser such as Chrome, Firefox or Safari.
+</div>
+
+  <header>
+    <h1>Commander Table</h1>
+    <div class="tools">
+      <div class="seg" role="group" aria-label="Players">
+        <button id="pc3" data-pc="3">3 players</button>
+        <button id="pc4" data-pc="4">4 players</button>
+      </div>
+      <button id="undoBtn" disabled>Undo</button>
+      <button id="resetBtn">New game</button>
+    </div>
+  </header>
+  <div id="confirmBox" class="confirm" hidden>
+    Start a new game? Life, damage, battlefield, log and the turn reset. Names stay.
+    <button class="yes" id="confirmYes">Reset</button><button id="confirmNo">Cancel</button>
+  </div>
+  <div id="winner" class="banner" hidden aria-live="polite"></div>
+
+  <section class="seats" id="seats" aria-label="Players"></section>
+
+  <section class="turn" aria-label="Turn tracker">
+    <div class="turn-top"><span class="who" id="who"></span><span class="tn" id="tn"></span></div>
+    <div class="phases" id="phases"></div>
+    <div class="phase-card" id="phaseCard"></div>
+    <div class="nav">
+      <button id="prevBtn">◀ Back</button>
+      <button id="nextBtn">Next step ▶</button>
+      <button id="passBtn" class="primary">End turn ⟳</button>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Battlefield">
+    <h3>Battlefield</h3>
+    <p class="hint">Add what each player has out. Tap a card to see its text, × to remove.</p>
+    <div class="board" id="board"></div>
+  </section>
+
+  <section class="panel" id="helper" aria-label="Rules helper" hidden>
+    <h3>How does this resolve?</h3>
+    <p class="hint">Describe what's being cast or activated and what it targets. Claude checks it against every card on the battlefield, the current step and the life totals.</p>
+    <div class="inline"><label for="askWho" class="hint">Who's doing it</label><select id="askWho" class="field"></select></div>
+    <textarea id="askText" class="field" placeholder="e.g. Casting Swords to Plowshares on Eleni's commander"></textarea>
+    <div class="inline"><button id="askBtn" class="btn-primary">Check it</button><button id="askStop" hidden>Stop</button></div>
+    <div id="askOut" class="answer" hidden aria-live="polite"></div>
+    <p id="askNote" class="err" hidden></p>
+  </section>
+
+  <section class="panel" aria-label="Card lookup">
+    <h3>Card lookup</h3>
+    <form id="lookupForm" class="inline"><input id="lookupName" class="field" placeholder="Card name" autocomplete="off" list="cardNames" maxlength="80"><button class="btn-primary" id="lookupBtn">Look up</button></form>
+    <div id="lookupOut"></div>
+    <datalist id="cardNames"></datalist>
+  </section>
+
+  <section class="panel" aria-label="Game log">
+    <h3>Game log</h3>
+    <ol class="log" id="log"></ol>
+  </section>
+
+  <section class="ref">
+    <h3>Can I target it?</h3>
+    <dl>
+      <dt>Hexproof</dt><dd>Opponents can't target it. Its controller still can.</dd>
+      <dt>Shroud</dt><dd>Nobody can target it, including its controller.</dd>
+      <dt>Ward</dt><dd>Opponents can target it, but their spell or ability is countered unless they pay the ward cost.</dd>
+      <dt>Protection from X</dt><dd>Can't be targeted, blocked, enchanted/equipped, or damaged by anything X. "Destroy all" effects still hit it.</dd>
+      <dt>Indestructible</dt><dd>Can be targeted. "Destroy" and lethal damage do nothing, but exile, sacrifice and −X/−X still work.</dd>
+      <dt>No word "target"</dt><dd>Effects that say "each" or "all" ignore hexproof, shroud and ward.</dd>
+    </dl>
+  </section>
+
+  <section class="ref">
+    <h3>Commander rules at a glance</h3>
+    <dl>
+      <dt>Start</dt><dd>40 life, 7 cards, one free mulligan. In multiplayer nobody skips their first draw.</dd>
+      <dt>Commander tax</dt><dd>+{2} for each time you've already cast it from the command zone.</dd>
+      <dt>You lose at</dt><dd>0 life, 21 combat damage from one commander, 10 poison counters, or drawing from an empty library.</dd>
+      <dt>Command zone</dt><dd>If your commander dies, is exiled, or would go to your hand or library, you may put it in the command zone instead.</dd>
+    </dl>
+  </section>
+</div>
+
+<script>
+const PHASES=[
+ {k:"Untap",sorc:false,inst:false,notes:["Active player untaps their permanents.","Nobody gets priority here: no spells, no abilities."]},
+ {k:"Upkeep",sorc:false,inst:true,notes:["“At the beginning of your upkeep” triggers go on the stack.","Instants and activated abilities are allowed."]},
+ {k:"Draw",sorc:false,inst:true,notes:["Active player draws a card. In multiplayer the first player draws too.","Instants and activated abilities are allowed after the draw."]},
+ {k:"Main 1",sorc:true,inst:true,notes:["Your turn + empty stack: cast creatures, sorceries, artifacts, enchantments, planeswalkers.","Play one land this turn (in either main phase).","Cast your commander from the command zone (pay the tax).","Abilities that say “activate only as a sorcery” go here."]},
+ {k:"Begin combat",sorc:false,inst:true,notes:["Last chance to act before attackers are declared.","Good time to tap or remove a creature that might attack."]},
+ {k:"Attackers",sorc:false,inst:true,notes:["Choose attackers and which player or planeswalker each one attacks.","A creature can't attack unless you've controlled it since your turn began (haste ignores this).","Attacking taps the creature unless it has vigilance.","Instants and abilities are allowed after attackers are declared."]},
+ {k:"Blockers",sorc:false,inst:true,notes:["Each defending player chooses blockers for creatures attacking them.","A blocker blocks one attacker (unless a card says otherwise). Flying can only be blocked by flying or reach.","Instants and abilities are allowed after blocks."]},
+ {k:"Damage",sorc:false,inst:true,notes:["First strike and double strike deal damage in an earlier, separate step.","Combat damage from a commander counts toward 21. Log it in the player's panel under “Damage & counters”.","Trample: assign lethal to blockers, the rest goes to the player."]},
+ {k:"End combat",sorc:false,inst:true,notes:["“Until end of combat” effects end.","Instants and abilities are allowed."]},
+ {k:"Main 2",sorc:true,inst:true,notes:["Same as Main 1: sorcery-speed spells and your land if you haven't played one."]},
+ {k:"End step",sorc:false,inst:true,notes:["“At the beginning of the end step” triggers.","Popular moment for opponents to cast instants and flash creatures."]},
+ {k:"Cleanup",sorc:false,inst:false,notes:["Discard down to 7 cards.","Damage on creatures wears off; “until end of turn” effects end.","Normally nobody gets priority here."]}
+];
+const SEATCOL=["var(--s1)","var(--s2)","var(--s3)","var(--s4)"];
+const KEY="cmdr-table-v1", CKEY="cmdr-cards-v1";
+/* Inside Claude the page can ask Claude but can't reach other sites; anywhere else it uses the Scryfall card database. */
+const IN_CLAUDE=!!window.claude;
+const API="https://api.scryfall.com";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const nm=i=>`<span data-nm="${i}">${esc(S.players[i].name)}</span>`;
+
+function blank(names){
+  return {pc:4,turn:1,round:1,active:0,phase:0,board:[[],[],[],[]],log:[],
+    players:[0,1,2,3].map(i=>({name:(names&&names[i])||"Player "+(i+1),life:40,poison:0,tax:0,cmd:[0,0,0,0]}))};
+}
+let S=null, CARDS={};
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+try{CARDS=JSON.parse(localStorage.getItem(CKEY))||{}}catch(e){}
+if(!S||!Array.isArray(S.players)||S.players.length<4){
+  S=blank(["Nikos (example)","Eleni (example)","Kostas (example)","Player 4"]);
+  S.board=[["Sol Ring","Rhystic Study"],["Smothering Tithe"],["Llanowar Elves"],[]];
+}
+if(S.cards){ if(!Object.keys(CARDS).length) CARDS=S.cards; delete S.cards; }
+if(!Array.isArray(S.board)||S.board.length<4) S.board=[[],[],[],[]];
+if(!Array.isArray(S.log)) S.log=[];
+S.pc=S.pc===3?3:4;
+S.active=Math.min(Math.max(0,S.active|0),S.pc-1);
+S.phase=Math.min(Math.max(0,S.phase|0),PHASES.length-1);
+if(!S.turn) S.turn=1;
+if(!S.round) S.round=Math.max(1,Math.ceil(S.turn/S.pc));
+
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function saveCards(){
+  const ks=Object.keys(CARDS); for(let k=0;k<ks.length-120;k++) delete CARDS[ks[k]];
+  try{localStorage.setItem(CKEY,JSON.stringify(CARDS))}catch(e){}
+}
+
+/* ---------- game state ---------- */
+function lossReason(p,i){
+  if(p.life<=0) return "0 life";
+  if(p.poison>=10) return "10 poison";
+  const k=p.cmd.slice(0,S.pc).findIndex((d,j)=>j!==i&&d>=21);
+  if(k>=0) return "21 commander damage from "+S.players[k].name;
+  return "";
+}
+const outs=()=>S.players.slice(0,S.pc).map(lossReason);
+function nextActive(){
+  for(let s=1;s<=S.pc;s++){const i=(S.active+s)%S.pc; if(!lossReason(S.players[i],i)) return i;}
+  return (S.active+1)%S.pc;
+}
+
+let undo=[], lastKey=null, lastAt=0;
+function snap(){undo.push(JSON.stringify(S)); if(undo.length>60) undo.shift();}
+/* Quick repeated taps on the same counter merge into one log line and one undo step. */
+function begin(key){
+  const now=Date.now(), last=S.log[S.log.length-1];
+  const merge=key===lastKey&&now-lastAt<4000&&last&&last.key===key&&last.turn===S.turn;
+  if(!merge) snap();
+  lastKey=key; lastAt=now; return merge;
+}
+function logPush(e){e.turn=S.turn; S.log.push(e); if(S.log.length>150) S.log.splice(0,S.log.length-150);}
+function counter(type,i,j,d){
+  const p=S.players[i], key=type+":"+i+":"+(j??"");
+  const from=type==="cmd"?p.cmd[j]:p[type];
+  const to=type==="life"?from+d:Math.max(0,from+d);
+  if(to===from) return false;
+  const before=outs(), merge=begin(key);
+  if(type==="cmd"){p.life-=to-from; p.cmd[j]=to} else p[type]=to;
+  if(merge){
+    const e=S.log[S.log.length-1]; e.to=to;
+    if(e.to===e.from){S.log.pop(); undo.pop(); lastKey=null}
+  } else logPush({key,type,i,j,from,to});
+  outs().forEach((why,k)=>{ if(why&&!before[k]) logPush({type:"out",i:k,why}); });
+  return true;
+}
+function passTurn(){
+  snap(); lastKey=null;
+  const nx=nextActive(); if(nx<=S.active) S.round++;
+  S.active=nx; S.turn++; S.phase=0;
+  logPush({type:"turn",i:nx});
+  $("askWho").value=String(nx);
+}
+function addCard(i,name){
+  name=String(name).trim().slice(0,80); if(!name) return;
+  snap(); lastKey=null; S.board[i].push(name); logPush({type:"add",i,card:name});
+}
+function doUndo(){
+  const s=undo.pop(); if(!s) return;
+  const names=S.players.map(p=>p.name), pc=S.pc;
+  S=JSON.parse(s); S.players.forEach((p,i)=>p.name=names[i]); S.pc=pc;
+  if(S.active>=pc) S.active=0;
+  lastKey=null; renderAll();
+}
+
+/* ---------- rendering ---------- */
+function renderTop(){
+  $("pc3").setAttribute("aria-pressed",S.pc===3);
+  $("pc4").setAttribute("aria-pressed",S.pc===4);
+  $("undoBtn").disabled=!undo.length;
+  const o=outs(), alive=o.map((w,i)=>w?-1:i).filter(i=>i>=0), w=$("winner");
+  if(alive.length===1){w.innerHTML=`${nm(alive[0])} wins<small>Tap New game to play again, or Undo if that was a mistake.</small>`;w.hidden=false}
+  else if(!alive.length){w.innerHTML="Draw<small>Everyone is out. Tap New game to play again.</small>";w.hidden=false}
+  else w.hidden=true;
+}
+function renderSeats(){
+  const open=[...document.querySelectorAll(".seat details")].map(d=>d.open);
+  $("seats").innerHTML=S.players.slice(0,S.pc).map((p,i)=>{
+    const out=lossReason(p,i);
+    const lifeCls=p.life<=0?"dead":p.life<=10?"low":"";
+    const cmdRows=S.players.slice(0,S.pc).map((o,j)=>j===i?"":`
+      <div class="row"><span class="lbl"><span class="dot" style="--c:${SEATCOL[j]}"></span>From ${nm(j)}</span>
+        <button data-a="cmd" data-i="${i}" data-j="${j}" data-d="-1" aria-label="Remove 1 commander damage">−</button>
+        <span class="v ${p.cmd[j]>=15?"hot":""}">${p.cmd[j]}</span>
+        <button data-a="cmd" data-i="${i}" data-j="${j}" data-d="1" aria-label="Add 1 commander damage">+</button></div>`).join("");
+    return `<article class="seat ${S.active===i?"active":""} ${out?"out":""}" style="--c:${SEATCOL[i]}">
+      <div class="seat-head">
+        <input id="name${i}" value="${esc(p.name)}" data-i="${i}" aria-label="Player ${i+1} name" maxlength="24" autocomplete="off">
+        ${S.active===i?'<span class="turn-tag">Turn</span>':""}
+      </div>
+      <div class="life">
+        <div class="stack"><button data-a="life" data-i="${i}" data-d="-1">−1</button><button data-a="life" data-i="${i}" data-d="-5">−5</button></div>
+        <div class="n ${lifeCls}">${p.life}</div>
+        <div class="stack"><button data-a="life" data-i="${i}" data-d="1">+1</button><button data-a="life" data-i="${i}" data-d="5">+5</button></div>
+      </div>
+      ${out?`<div class="status">Out: ${esc(out)}</div>`:""}
+      <details ${open[i]?"open":""}><summary>Damage & counters</summary>
+        <div class="rows">
+          <span class="hint">Commander damage taken (also lowers life)</span>
+          ${cmdRows}
+          <div class="row"><span class="lbl">Poison</span>
+            <button data-a="poison" data-i="${i}" data-d="-1" aria-label="Remove 1 poison">−</button><span class="v ${p.poison>=7?"hot":""}">${p.poison}</span><button data-a="poison" data-i="${i}" data-d="1" aria-label="Add 1 poison">+</button></div>
+          <div class="row"><span class="lbl">Commander casts · tax +${p.tax*2}</span>
+            <button data-a="tax" data-i="${i}" data-d="-1" aria-label="One fewer commander cast">−</button><span class="v">${p.tax}</span><button data-a="tax" data-i="${i}" data-d="1" aria-label="One more commander cast">+</button></div>
+        </div>
+      </details>
+    </article>`;
+  }).join("");
+}
+function renderTurn(){
+  const ph=PHASES[S.phase];
+  $("who").innerHTML=nm(S.active)+"'s turn";
+  $("who").style.color=SEATCOL[S.active];
+  $("tn").textContent="Round "+S.round+" · turn "+S.turn;
+  const box=$("phases");
+  [...box.children].forEach((b,i)=>b.classList.toggle("on",i===S.phase));
+  const on=box.children[S.phase];
+  if(on) box.scrollLeft=on.offsetLeft-(box.clientWidth-on.offsetWidth)/2;   /* scrolls the strip only, never the page */
+  $("phaseCard").innerHTML=`<h2>${ph.k}</h2>
+    <div class="chips">
+      <span class="chip ${ph.inst?"yes":"no"}">${ph.inst?"✓":"✕"} Instants & abilities</span>
+      <span class="chip ${ph.sorc?"yes":"no"}">${ph.sorc?"✓":"✕"} Sorcery-speed (${nm(S.active)} only)</span>
+    </div>
+    <ul>${ph.notes.map(n=>`<li>${n}</li>`).join("")}</ul>`;
+  $("prevBtn").disabled=S.phase===0;
+}
+function renderBoard(){
+  const live=S.players.slice(0,S.pc);
+  $("board").innerHTML=live.map((p,i)=>`<div class="bplayer" style="--c:${SEATCOL[i]}">
+    <span class="bname"><span class="dot"></span>${nm(i)}</span>
+    <div class="bcards">${S.board[i].length?S.board[i].map((c,k)=>`<span class="bcard"><button data-a="look" data-name="${esc(c)}">${esc(c)}</button><button class="x" data-a="rm" data-i="${i}" data-k="${k}" aria-label="Remove ${esc(c)}">×</button></span>`).join(""):'<span class="empty">Nothing recorded</span>'}</div>
+    <form class="inline addform" data-i="${i}"><input class="field" id="add${i}" placeholder="Add a card" autocomplete="off" list="cardNames" maxlength="80" aria-label="Add a card for player ${i+1}"><button>Add</button></form>
+  </div>`).join("");
+  const w=$("askWho"), cur=w.value;
+  w.innerHTML=live.map((p,i)=>`<option value="${i}" data-nm="${i}">${esc(p.name)}</option>`).join("");
+  w.value=(cur!==""&&+cur<S.pc)?cur:String(S.active);
+}
+function logLine(e){
+  const d=e.to-e.from, ab=Math.abs(d), sg=d>0?"+":"−";
+  switch(e.type){
+    case "life": return `${nm(e.i)} ${sg}${ab} life (${e.from} → ${e.to})`;
+    case "cmd": return d>0?`${nm(e.i)} takes ${ab} commander damage from ${nm(e.j)} (${e.to} total)`:`${ab} commander damage from ${nm(e.j)} removed from ${nm(e.i)} (${e.to} total)`;
+    case "poison": return `${nm(e.i)} ${sg}${ab} poison (${e.to} total)`;
+    case "tax": return `${nm(e.i)} commander casts ${e.from} → ${e.to} (tax +${e.to*2})`;
+    case "turn": return `<span class="mark">${nm(e.i)}'s turn starts</span>`;
+    case "add": return `${nm(e.i)} puts ${esc(e.card)} on the battlefield`;
+    case "rm": return `${esc(e.card)} leaves ${nm(e.i)}'s battlefield`;
+    case "out": return `<span class="gone">${nm(e.i)} is out (${esc(e.why)})</span>`;
+    case "new": return `<span class="mark">New game</span>`;
+  }
+  return "";
+}
+function renderLog(){
+  $("log").innerHTML=S.log.length?S.log.slice().reverse().map(e=>`<li><span class="t">T${e.turn}</span><span>${logLine(e)}</span></li>`).join("")
+    :'<li class="empty" style="display:block">Nothing yet. Life changes, damage, cards and turns are recorded here.</li>';
+}
+function patchNames(){document.querySelectorAll("[data-nm]").forEach(el=>{el.textContent=S.players[+el.dataset.nm].name})}
+function after(){renderTop();renderLog();save()}
+function renderAll(){renderSeats();renderTurn();renderBoard();renderShown();after()}
+
+/* ---------- Claude help (only inside Claude) ---------- */
+const samplePromise=(IN_CLAUDE&&window.claude.use?window.claude.use("sample"):Promise.resolve(null)).catch(()=>null);
+const ERR={not_granted:"Card help is off because Claude access wasn't allowed for this page.",sampling_disabled:"Claude isn't available on this account.",rate_limited:"Too many requests right now. Wait a minute and try again.",session_expired:"Sign in to Claude again, then retry.",refused:"Claude couldn't answer that. Try rewording it.",invalid_json:"The answer came back garbled. Try again.",empty_completion:"No answer came back. Try rephrasing.",net:"Couldn't reach the card database. Check your connection and try again."};
+const errText=c=>ERR[c]||"Something went wrong. Try again.";
+const UNAVAILABLE="This needs Claude, so it only works when you're signed in to Claude.";
+
+function md(t){
+  const lines=esc(t).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").split("\n");
+  let out="",list=null;
+  for(const l of lines){
+    const b=l.match(/^\s*[-*•]\s+(.*)/), n=l.match(/^\s*\d+[.)]\s+(.*)/);
+    const want=b?"ul":n?"ol":null;
+    if(list&&want!==list){out+=`</${list}>`;list=null}
+    if(want){if(!list){out+=`<${want}>`;list=want}out+=`<li>${(b||n)[1]}</li>`}
+    else if(l.trim()) out+=`<p>${l.replace(/^#+\s*/,"")}</p>`;
+  }
+  if(list) out+=`</${list}>`;
+  return out;
+}
+function gameState(){
+  const live=S.players.slice(0,S.pc);
+  return live.map((p,i)=>{
+    const cmd=live.map((o,j)=>j!==i&&p.cmd[j]?`${p.cmd[j]} from ${o.name}'s commander`:"").filter(Boolean).join(", ");
+    const why=lossReason(p,i);
+    return `- ${p.name}${why?" (eliminated)":""}: ${p.life} life, ${p.poison} poison${cmd?", commander damage taken: "+cmd:""}. Battlefield: ${S.board[i].length?S.board[i].join("; "):"nothing recorded"}.`;
+  }).join("\n");
+}
+let askCtl=null;
+async function ask(){
+  const txt=$("askText").value.trim(), out=$("askOut"), note=$("askNote");
+  note.hidden=true;
+  if(!txt){note.textContent="Describe what's being cast or activated first.";note.hidden=false;return}
+  $("askBtn").disabled=true;
+  const sample=await samplePromise;
+  if(!sample){$("askBtn").disabled=false;note.textContent=UNAVAILABLE;note.hidden=false;return}
+  const who=S.players[+$("askWho").value]||S.players[S.active];
+  const prompt=`You are a Magic: The Gathering judge helping at a casual paper Commander game. Explain how the action below resolves.
+
+Game: Commander, ${S.pc} players, 40 starting life.
+Active player: ${S.players[S.active].name}. Current step: ${PHASES[S.phase].k}.
+Acting player: ${who.name}.
+Players and what is on their battlefields:
+${gameState()}
+
+Action: ${txt}
+
+Answer in this order, briefly and in plain words:
+**Legal?** Can this player do this right now (timing for this step and whose turn it is), and are the targets legal (hexproof, shroud, protection, ward and similar from the recorded cards)?
+**How it resolves** Step by step, including every recorded card that triggers, replaces or changes the outcome (static abilities, enters/dies/cast triggers, taxes like Rhystic Study or Smothering Tithe). Put simultaneous triggers in APNAP order.
+**Watch out for** Responses or interactions the table should know about.
+Use each card's Oracle text as you know it. If you're unsure of a card's exact text, or it may be newer than you know, say so and state what you assumed. Cite Comprehensive Rules numbers only when sure. Under 250 words. Use only those three bold labels as headings, with bullets under them.`;
+  askCtl=new AbortController();
+  $("askStop").hidden=false;
+  out.hidden=false;out.innerHTML="<p class='hint'>Thinking…</p>";
+  try{
+    const r=await sample(prompt,{signal:askCtl.signal,cache:false,onText:({text})=>{out.innerHTML=md(text)}});
+    out.innerHTML=md(r.text);
+    if(r.truncated){note.textContent="The answer was cut short. Ask about one part at a time.";note.hidden=false}
+  }catch(e){
+    out.innerHTML=e.text?md(e.text):"";out.hidden=!e.text;
+    if(e.code!=="cancelled"){note.textContent=errText(e.code);note.hidden=false}
+  }finally{$("askBtn").disabled=false;$("askStop").hidden=true;askCtl=null}
+}
+
+/* ---------- card lookup ---------- */
+const TARGET_NOTES=[
+ [/\bhexproof\b/i,"Hexproof: opponents can't target a permanent that has it."],
+ [/\bshroud\b/i,"Shroud: nobody can target a permanent that has it, not even its controller."],
+ [/\bward\b/i,"Ward: an opponent's spell or ability that targets it is countered unless they pay the ward cost."],
+ [/\bprotection from\b/i,"Protection: can't be targeted, blocked, enchanted/equipped or damaged by what it names."],
+ [/\bindestructible\b/i,"Indestructible: “destroy” and lethal damage don't remove it. Exile, sacrifice and −X/−X do."]
+];
+const sfLink=name=>`https://scryfall.com/search?q=${encodeURIComponent(name)}`;
+let shown=null;
+function cardHTML(c){
+  if(!c.found){
+    const sug=(c.suggestions||[]).map(s=>`<button data-a="look" data-name="${esc(s)}">${esc(s)}</button>`).join(" ");
+    return `<p class="err">${c.ambiguous?"Several cards match that name.":"No card found by that name."}${sug?" Did you mean: "+sug:""}</p>`;
+  }
+  const official=c.src==="scryfall";
+  const tn=TARGET_NOTES.filter(([re])=>re.test(c.oracle_text||"")).map(([,t])=>`<li>${t}</li>`).join("");
+  const notes=!official&&Array.isArray(c.commander_notes)&&c.commander_notes.length?`<ul>${c.commander_notes.map(n=>`<li>${esc(n)}</li>`).join("")}</ul>`:"";
+  let rul="";
+  if(official){
+    if(Array.isArray(c.rulings)) rul=c.rulings.length?`<details><summary>Official rulings (${c.rulings.length})</summary><ul>${c.rulings.map(r=>`<li>${esc(r.t)} <span class="date">${esc(r.d||"")}</span></li>`).join("")}</ul></details>`:'<span class="hint">No official rulings for this card.</span>';
+    else rul=`<span class="hint">${c.rulingsErr?"Couldn't load rulings.":"Loading rulings…"}</span>`;
+  }
+  const legal=c.legal&&c.legal!=="legal"?`<span class="chips"><span class="chip no">${c.legal==="banned"?"Banned in Commander":"Not legal in Commander"}</span></span>`:"";
+  const adds=S.players.slice(0,S.pc).map((p,i)=>`<button data-a="addto" data-i="${i}" data-name="${esc(c.name)}">+ ${nm(i)}</button>`).join("");
+  return `<div class="card-res answer">
+    <div class="card-top">
+      ${c.img?`<img class="cardimg" src="${esc(c.img)}" alt="${esc(c.name)}" width="146" height="204" loading="lazy">`:""}
+      <div class="txt">
+        <span class="cname">${esc(c.name)} <span class="cost">${esc(c.mana_cost||"")}</span></span>
+        <span class="tline">${esc(c.type_line||"")}${c.power_toughness?" · "+esc(c.power_toughness):""}</span>
+        ${legal}
+        <div class="oracle">${esc(c.oracle_text||"")}</div>
+      </div>
+    </div>
+    ${tn?`<div><span class="hint">Targeting, from its text</span><ul>${tn}</ul></div>`:""}
+    ${notes}${rul}
+    <span class="hint">${official?"Official Oracle text from Scryfall.":"Text from Claude's card knowledge"+(c.confidence&&c.confidence!=="high"?" (not fully sure, check it).":".")} <a href="${esc(official&&c.url?c.url:sfLink(c.name))}" target="_blank" rel="noopener">${official?"Open on Scryfall ↗":"Official text and rulings on Scryfall ↗"}</a></span>
+    <div class="inline"><span class="hint">Put on battlefield:</span>${adds}</div>
+  </div>`;
+}
+function renderShown(){ if(shown) $("lookupOut").innerHTML=cardHTML(shown); }
+
+function sfNormalize(d){
+  const f=Array.isArray(d.card_faces)?d.card_faces:[], f0=f[0]||{};
+  const pt=x=>x.power!=null?x.power+"/"+x.toughness:x.loyalty!=null?"Loyalty "+x.loyalty:x.defense!=null?"Defense "+x.defense:null;
+  const oracle=d.oracle_text!=null?d.oracle_text:f.map(x=>(x.name||"")+(x.type_line?" · "+x.type_line:"")+"\n"+(x.oracle_text||"")).join("\n\n");
+  const rul=typeof d.rulings_uri==="string"&&d.rulings_uri.startsWith(API+"/")?d.rulings_uri:"";
+  const page=typeof d.scryfall_uri==="string"&&d.scryfall_uri.startsWith("https://scryfall.com/")?d.scryfall_uri:"";
+  return {found:true,src:"scryfall",name:d.name,mana_cost:d.mana_cost||f0.mana_cost||"",type_line:d.type_line||f0.type_line||"",
+    oracle_text:oracle,power_toughness:pt(d)||pt(f0),legal:d.legalities&&d.legalities.commander,
+    img:((d.image_uris||f0.image_uris||{}).small)||"",url:page,rulings_uri:rul,rulings:null};
+}
+async function sfLookup(name){
+  let r;
+  try{r=await fetch(API+"/cards/named?fuzzy="+encodeURIComponent(name))}catch(e){throw {code:"net"}}
+  if(r.status===404){
+    const j=await r.json().catch(()=>({}));
+    let sug=[];
+    try{sug=((await (await fetch(API+"/cards/autocomplete?q="+encodeURIComponent(name))).json()).data||[]).slice(0,4)}catch(e){}
+    return {found:false,ambiguous:j.type==="ambiguous",suggestions:sug};
+  }
+  if(!r.ok) throw {code:"net"};
+  return sfNormalize(await r.json());
+}
+async function sfRulings(c){
+  if(Array.isArray(c.rulings)||!c.rulings_uri){ if(!Array.isArray(c.rulings)) c.rulings=[]; return; }
+  try{
+    await new Promise(res=>setTimeout(res,120));          /* Scryfall asks for a short gap between requests */
+    const r=await fetch(c.rulings_uri); if(!r.ok) throw 0;
+    c.rulings=((await r.json()).data||[]).map(x=>({d:x.published_at,t:x.comment}));
+    c.rulingsErr=false; saveCards();
+  }catch(e){c.rulingsErr=true}
+  if(shown===c) renderShown();
+}
+async function claudeLookup(name){
+  const sample=await samplePromise;
+  if(!sample) throw {code:"no_claude"};
+  const c=await sample.json(`Reply with only a JSON object for the Magic: The Gathering card named "${name.replace(/"/g,"'")}" (correct the spelling if it's close to a real card). Shape:
+{"found":true,"name":"exact card name","mana_cost":"{2}{W}","type_line":"...","oracle_text":"current Oracle text, line breaks as \\n","power_toughness":"2/2 or null","commander_notes":["up to 4 short plain-language notes: key official rulings, common mistakes, or how it plays in multiplayer Commander"],"confidence":"high|medium|low"}
+If no such card exists: {"found":false,"suggestions":["up to 3 close real card names"]}`);
+  if(!c||typeof c!=="object"||(c.found&&typeof c.name!=="string")) throw {code:"invalid_json"};
+  return c;
+}
+let lookupSeq=0;
+async function lookup(name){
+  name=String(name).trim().slice(0,80); if(!name) return;
+  $("lookupName").value=name;
+  const out=$("lookupOut"), key=name.toLowerCase(), seq=++lookupSeq;
+  const hit=CARDS[key];
+  if(hit&&(IN_CLAUDE||hit.src==="scryfall")){shown=hit;renderShown();if(!IN_CLAUDE)sfRulings(hit);return}
+  $("lookupBtn").disabled=true;shown=null;out.innerHTML="<p class='hint'>Looking it up…</p>";
+  try{
+    const c=IN_CLAUDE?await claudeLookup(name):await sfLookup(name);
+    if(seq!==lookupSeq) return;
+    shown=c;renderShown();
+    if(c.found){CARDS[key]=c;CARDS[c.name.toLowerCase()]=c;saveCards();if(c.src==="scryfall")sfRulings(c)}
+  }catch(e){
+    if(seq!==lookupSeq) return;
+    out.innerHTML=e.code==="no_claude"
+      ?`<p class="err">${UNAVAILABLE} <a href="${esc(sfLink(name))}" target="_blank" rel="noopener">Open “${esc(name)}” on Scryfall ↗</a></p>`
+      :`<p class="err">${errText(e.code)}</p>`;
+  }finally{ if(seq===lookupSeq) $("lookupBtn").disabled=false }
+}
+/* Name suggestions while typing (Scryfall only) */
+let acTimer=null, acSeq=0;
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(IN_CLAUDE||!t.matches||!t.matches('input[list="cardNames"]')) return;
+  clearTimeout(acTimer);
+  const q=t.value.trim(); if(q.length<3) return;
+  acTimer=setTimeout(async()=>{
+    const seq=++acSeq;
+    try{
+      const j=await (await fetch(API+"/cards/autocomplete?q="+encodeURIComponent(q))).json();
+      if(seq===acSeq) $("cardNames").innerHTML=(j.data||[]).slice(0,12).map(n=>`<option value="${esc(n)}"></option>`).join("");
+    }catch(err){}
+  },300);
+});
+
+/* ---------- events ---------- */
+let wl=null;
+async function wake(){ try{ if(!wl&&navigator.wakeLock){wl=await navigator.wakeLock.request("screen");wl.addEventListener("release",()=>{wl=null})} }catch(e){} }
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")wake()});
+
+$("askBtn").addEventListener("click",ask);
+$("askStop").addEventListener("click",()=>askCtl&&askCtl.abort());
+$("lookupForm").addEventListener("submit",e=>{e.preventDefault();lookup($("lookupName").value)});
+document.addEventListener("submit",e=>{
+  const f=e.target.closest(".addform"); if(!f) return;
+  e.preventDefault();
+  const i=+f.dataset.i, v=f.querySelector("input").value.trim();
+  if(v){addCard(i,v);renderBoard();after();const n=$("add"+i);if(n)n.focus()}
+});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b||b.disabled) return;
+  const i=+b.dataset.i, d=+b.dataset.d, a=b.dataset.a;
+  wake();
+  if(a==="life"||a==="poison"||a==="tax"){ if(counter(a,i,null,d)){renderSeats();after()} }
+  else if(a==="cmd"){ if(counter("cmd",i,+b.dataset.j,d)){renderSeats();after()} }
+  else if(a==="look"){lookup(b.dataset.name);$("lookupForm").scrollIntoView({block:"start",behavior:"smooth"})}
+  else if(a==="rm"){const k=+b.dataset.k,card=S.board[i][k];snap();lastKey=null;S.board[i].splice(k,1);logPush({type:"rm",i,card});renderBoard();after()}
+  else if(a==="addto"){addCard(i,b.dataset.name);renderBoard();after();b.textContent="✓ Added";b.disabled=true}
+  else if(b.dataset.pc){S.pc=+b.dataset.pc;if(S.active>=S.pc)S.active=0;renderAll()}
+  else if(b.dataset.ph){S.phase=+b.dataset.ph;renderTurn();save()}
+  else if(b.id==="nextBtn"){ if(S.phase<PHASES.length-1){S.phase++;renderTurn();save()} else {passTurn();renderSeats();renderTurn();after()} }
+  else if(b.id==="prevBtn"){ if(S.phase>0){S.phase--;renderTurn();save()} }
+  else if(b.id==="passBtn"){passTurn();renderSeats();renderTurn();after()}
+  else if(b.id==="undoBtn"){doUndo()}
+  else if(b.id==="resetBtn"){$("confirmBox").hidden=false}
+  else if(b.id==="confirmNo"){$("confirmBox").hidden=true}
+  else if(b.id==="confirmYes"){snap();lastKey=null;const n=S.players.map(p=>p.name),pc=S.pc;S=blank(n);S.pc=pc;logPush({type:"new"});$("confirmBox").hidden=true;renderAll()}
+});
+document.addEventListener("change",e=>{
+  if(!e.target.matches(".seat-head input")) return;
+  const i=+e.target.dataset.i;
+  S.players[i].name=e.target.value.trim()||("Player "+(i+1));
+  e.target.value=S.players[i].name;
+  patchNames();save();          /* updates labels in place so a tap made while the keyboard is open isn't lost */
+});
+
+$("phases").innerHTML=PHASES.map((p,i)=>`<button data-ph="${i}">${p.k}</button>`).join("");
+$("helper").hidden=!IN_CLAUDE;
+renderAll();
+const jw=document.getElementById("jsWarn"); if(jw) jw.remove();
+</script>
+</body>
+</html>
